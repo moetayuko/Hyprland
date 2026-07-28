@@ -199,9 +199,16 @@ void CXWaylandSurface::configure(const CBox& box) {
 
     m_geometry = box;
 
+    int32_t bufScale  = sc<int32_t>(std::ceil(g_pXWayland->m_wm->m_scale));
+    int32_t scaledW   = g_pXWayland->m_wm->applyScale(box.width);
+    int32_t scaledH   = g_pXWayland->m_wm->applyScale(box.height);
+    // round up to buffer_scale multiples to pass WL_SURFACE_ERROR_INVALID_SIZE check
+    scaledW = ((scaledW + bufScale - 1) / bufScale) * bufScale;
+    scaledH = ((scaledH + bufScale - 1) / bufScale) * bufScale;
+
     uint32_t mask     = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH;
     uint32_t values[] = {sc<uint32_t>(g_pXWayland->m_wm->applyScale(box.x)), sc<uint32_t>(g_pXWayland->m_wm->applyScale(box.y)),
-                         sc<uint32_t>(g_pXWayland->m_wm->applyScale(box.width)), sc<uint32_t>(g_pXWayland->m_wm->applyScale(box.height)), 0};
+                         sc<uint32_t>(scaledW), sc<uint32_t>(scaledH), 0};
     xcb_configure_window(g_pXWayland->m_wm->getConnection(), m_xID, mask, values);
 
     if (box.width == oldSize.x && box.height == oldSize.y) {
@@ -212,8 +219,8 @@ void CXWaylandSurface::configure(const CBox& box) {
         e.window            = m_xID;
         e.x                 = g_pXWayland->m_wm->applyScale(box.x);
         e.y                 = g_pXWayland->m_wm->applyScale(box.y);
-        e.width             = g_pXWayland->m_wm->applyScale(box.width);
-        e.height            = g_pXWayland->m_wm->applyScale(box.height);
+        e.width             = scaledW;
+        e.height            = scaledH;
         e.border_width      = 0;
         e.above_sibling     = XCB_NONE;
         e.override_redirect = m_overrideRedirect;

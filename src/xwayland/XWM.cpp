@@ -62,6 +62,22 @@ void CXWM::handleCreate(xcb_create_notify_event_t* e) {
     XSURF->m_self = XSURF;
     Log::logger->log(Log::DEBUG, "[xwm] New XSurface at {:x} with xid of {}", rc<uintptr_t>(XSURF.get()), e->window);
 
+    // immediately configure with buffer_scale-aligned dimensions
+    // to avoid WL_SURFACE_ERROR_INVALID_SIZE when XWayland commits
+    {
+        int32_t bufScale = sc<int32_t>(std::ceil(m_scale));
+        int32_t w        = applyScale(applyUnScale(e->width));
+        int32_t h        = applyScale(applyUnScale(e->height));
+        w                = ((w + bufScale - 1) / bufScale) * bufScale;
+        h                = ((h + bufScale - 1) / bufScale) * bufScale;
+        int32_t x        = applyScale(applyUnScale(e->x));
+        int32_t y        = applyScale(applyUnScale(e->y));
+        uint32_t mask    = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH;
+        uint32_t values[] = {sc<uint32_t>(x), sc<uint32_t>(y), sc<uint32_t>(w), sc<uint32_t>(h), 0};
+        xcb_configure_window(getConnection(), e->window, mask, values);
+        xcb_flush(getConnection());
+    }
+
     const auto WINDOW = Desktop::View::CWindow::create(XSURF);
     WINDOW->m_self    = WINDOW;
     Log::logger->log(Log::DEBUG, "[xwm] New XWayland window at {:x} for surf {:x}", rc<uintptr_t>(WINDOW.get()), rc<uintptr_t>(XSURF.get()));
